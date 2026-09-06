@@ -78,7 +78,7 @@ pipeline {
                             git commit -m "Deploy ${params.IMAGE_VERSION}"
                         fi
 
-                        git push https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/hazemhadda231/stroke-mlops-k8s.git HEAD:main
+                        git push https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/hazem324/stroke-mlops-k8s.git HEAD:main
                     """
                 }
             }
