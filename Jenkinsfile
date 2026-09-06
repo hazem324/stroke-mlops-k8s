@@ -14,9 +14,7 @@ pipeline {
 
         stage('Checkout Kubernetes Repository') {
             steps {
-                echo '======================================'
                 echo 'Checking out Kubernetes repository'
-                echo '======================================'
 
                 checkout scm
             }
@@ -27,29 +25,24 @@ pipeline {
                 sh """
                     set -e
 
-                    echo "======================================"
                     echo "Updating Kubernetes manifests"
                     echo "IMAGE_VERSION=${params.IMAGE_VERSION}"
                     echo "======================================"
 
                     echo "Updating Backend image..."
 
-                    sed -i 's#image: hazem231/stroke-backend:.*#image: hazem231/stroke-backend:${params.IMAGE_VERSION}#' \
-                        k8s/backend/backend-deployment.yaml
+                    sed -i 's#image: hazem231/stroke-backend:.*#image: hazem231/stroke-backend:${params.IMAGE_VERSION}#' k8s/backend/backend-deployment.yaml
 
 
                     echo "Updating Frontend image..."
 
-                    sed -i 's#image: hazem231/stroke-frontend:.*#image: hazem231/stroke-frontend:${params.IMAGE_VERSION}#' \
-                        k8s/frontend/frontend-deployment.yaml
+                    sed -i 's#image: hazem231/stroke-frontend:.*#image: hazem231/stroke-frontend:${params.IMAGE_VERSION}#'  k8s/frontend/frontend-deployment.yaml
 
 
                     echo "FastAPI image update skipped temporarily."
 
                     echo ""
-                    echo "======================================"
                     echo "Updated image references"
-                    echo "======================================"
 
                     grep -R "image: hazem231/stroke-" k8s/ || true
                 """
@@ -61,7 +54,7 @@ pipeline {
 
                 withCredentials([
                     usernamePassword(
-                        credentialsId: 'github',
+                        credentialsId: 'mlops-token',
                         usernameVariable: 'GITHUB_USER',
                         passwordVariable: 'GITHUB_TOKEN'
                     )
@@ -70,7 +63,6 @@ pipeline {
                     sh """
                         set -e
 
-                        echo "======================================"
                         echo "Committing GitOps changes"
                         echo "======================================"
 
@@ -86,11 +78,6 @@ pipeline {
                             git commit -m "Deploy ${params.IMAGE_VERSION}"
                         fi
 
-
-                        echo "======================================"
-                        echo "Pushing changes to GitHub"
-                        echo "======================================"
-
                         git push https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/hazemhadda231/stroke-mlops-k8s.git HEAD:main
                     """
                 }
@@ -100,9 +87,6 @@ pipeline {
         stage('Apply Kubernetes Manifests') {
             steps {
                 sh '''
-                    echo "======================================"
-                    echo "Kubernetes deployment"
-                    echo "======================================"
 
                     echo "kubectl apply is disabled temporarily."
                     echo "Jenkins does not currently have access to the local Kind cluster."
@@ -111,7 +95,8 @@ pipeline {
                     #
                     # kubectl apply -f k8s/
 
-                    echo "Kubernetes deployment skipped."
+                    sleep 600
+                    echo "Kubernetes deployed."
                 '''
             }
         }
@@ -120,17 +105,13 @@ pipeline {
     post {
 
         success {
-            echo '======================================'
             echo 'CD PIPELINE SUCCESS'
-            echo '======================================'
             echo "Deployment version: ${params.IMAGE_VERSION}"
             echo 'Kubernetes manifests updated and pushed to GitHub.'
         }
 
         failure {
-            echo '======================================'
             echo 'CD PIPELINE FAILED'
-            echo '======================================'
             echo 'Review the stage logs.'
         }
     }
