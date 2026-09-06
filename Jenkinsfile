@@ -1,10 +1,138 @@
 pipeline {
-    agent any 
+
+    agent any
+
+    parameters {
+        string(
+            name: 'IMAGE_VERSION',
+            defaultValue: '1.3',
+            description: 'Docker image version to deploy'
+        )
+    }
+
     stages {
-        stage('Hello World Stage') {
+
+        stage('Checkout Kubernetes Repository') {
             steps {
-                echo 'Hello World'
+                echo '======================================'
+                echo 'Checking out Kubernetes repository'
+                echo '======================================'
+
+                checkout scm
+            }
+        }
+
+        stage('Update Kubernetes Manifests') {
+            steps {
+                sh """
+                    set -e
+
+                    echo "======================================"
+                    echo "Updating Kubernetes manifests"
+                    echo "IMAGE_VERSION=${params.IMAGE_VERSION}"
+                    echo "======================================"
+
+                    echo "Updating Backend image..."
+
+                    sed -i 's#image: hazem231/stroke-backend:.*#image: hazem231/stroke-backend:${params.IMAGE_VERSION}#' \
+                        k8s/backend/backend-deployment.yaml
+
+
+                    echo "Updating Frontend image..."
+
+                    sed -i 's#image: hazem231/stroke-frontend:.*#image: hazem231/stroke-frontend:${params.IMAGE_VERSION}#' \
+                        k8s/frontend/frontend-deployment.yaml
+
+
+                    echo "FastAPI image update skipped temporarily."
+
+                    echo ""
+                    echo "======================================"
+                    echo "Updated image references"
+                    echo "======================================"
+
+                    grep -R "image: hazem231/stroke-" k8s/ || true
+                """
+            }
+        }
+
+        stage('Commit and Push GitOps Changes') {
+            steps {
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'github',
+                        usernameVariable: 'GITHUB_USER',
+                        passwordVariable: 'GITHUB_TOKEN'
+                    )
+                ]) {
+
+                    sh """
+                        set -e
+
+                        echo "======================================"
+                        echo "Committing GitOps changes"
+                        echo "======================================"
+
+                        git config user.name "Jenkins"
+                        git config user.email "jenkins@local"
+
+                        git add k8s/
+
+                        if git diff --cached --quiet; then
+                            echo "No manifest changes detected."
+                            echo "Nothing to commit."
+                        else
+                            git commit -m "Deploy ${params.IMAGE_VERSION}"
+                        fi
+
+
+                        echo "======================================"
+                        echo "Pushing changes to GitHub"
+                        echo "======================================"
+
+                        git push https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/hazemhadda231/stroke-mlops-k8s.git HEAD:main
+                    """
+                }
+            }
+        }
+
+        stage('Apply Kubernetes Manifests') {
+            steps {
+                sh '''
+                    echo "======================================"
+                    echo "Kubernetes deployment"
+                    echo "======================================"
+
+                    echo "kubectl apply is disabled temporarily."
+                    echo "Jenkins does not currently have access to the local Kind cluster."
+
+                    # Future deployment command:
+                    #
+                    # kubectl apply -f k8s/
+
+                    echo "Kubernetes deployment skipped."
+                '''
             }
         }
     }
+
+    post {
+
+        success {
+            echo '======================================'
+            echo 'CD PIPELINE SUCCESS'
+            echo '======================================'
+            echo "Deployment version: ${params.IMAGE_VERSION}"
+            echo 'Kubernetes manifests updated and pushed to GitHub.'
+        }
+
+        failure {
+            echo '======================================'
+            echo 'CD PIPELINE FAILED'
+            echo '======================================'
+            echo 'Review the stage logs.'
+        }
+    }
 }
+
