@@ -36,7 +36,7 @@ spec:
 
       containers:
         - name: backend
-          image: hazem231/stroke-backend:2.8
+          image: hazem231/stroke-backend:2.9
           imagePullPolicy: Always
 
           ports:
